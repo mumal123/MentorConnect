@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -13,12 +14,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function IssueForm() {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [issueType, setIssueType] = useState("Academic");
+  const [visibility, setVisibility] = useState("public");
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,8 +40,6 @@ export function IssueForm() {
     const formData = new FormData(form);
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-    const issueType = formData.get("issueType") as string;
-    const visibility = formData.get("visibility") as string;
 
     const {
       data: { user },
@@ -54,7 +63,7 @@ export function IssueForm() {
       categoryId = category.id;
     }
 
-    const { error } = await supabase.from("issues").insert({
+    const { error: insertError } = await supabase.from("issues").insert({
       title,
       description,
       creator_id: user.id,
@@ -63,8 +72,8 @@ export function IssueForm() {
       category_id: categoryId,
     });
 
-    if (error) {
-      setError(error.message);
+    if (insertError) {
+      setError(insertError.message);
       setLoading(false);
     } else {
       router.push("/issues");
@@ -94,10 +103,10 @@ export function IssueForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <textarea
+            <Textarea
               id="description"
               name="description"
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-[120px]"
               placeholder="Describe the issue..."
               required
               disabled={loading}
@@ -106,24 +115,40 @@ export function IssueForm() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="issueType">Type</Label>
-              <select id="issueType" name="issueType" disabled={loading} defaultValue="Academic">
-                <option>Academic</option>
-                <option>Personal</option>
-                <option>Mental Health</option>
-                <option>Career</option>
-              </select>
+              <Select disabled={loading} value={issueType} onValueChange={setIssueType}>
+                <SelectTrigger id="issueType">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Academic">Academic</SelectItem>
+                  <SelectItem value="Personal">Personal</SelectItem>
+                  <SelectItem value="Mental Health">Mental Health</SelectItem>
+                  <SelectItem value="Career">Career</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="visibility">Visibility</Label>
-              <select id="visibility" name="visibility" disabled={loading} defaultValue="public">
-                <option value="public">Public</option>
-                <option value="private">Private (only mentor)</option>
-              </select>
+              <Select disabled={loading} value={visibility} onValueChange={setVisibility}>
+                <SelectTrigger id="visibility">
+                  <SelectValue placeholder="Select visibility" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="private">Private (Mentors Only)</SelectItem>
+                  <SelectItem value="ultra_private">Ultra-Private (Counsellor Only)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {visibility === 'public' && "Visible to all students and mentors."}
+                {visibility === 'private' && "Only you and assigned mentors can see this."}
+                {visibility === 'ultra_private' && "Only the Counselling Head can see this. Highest privacy."}
+              </p>
             </div>
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 mt-4">
             <Button
               type="button"
               variant="outline"

@@ -5,19 +5,23 @@ import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, ThumbsUp } from "lucide-react";
+import { Heart, ThumbsUp, Lock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Comment {
   id: string;
   body: string;
   created_at: string;
   author_id: string;
+  is_internal_note: boolean;
 }
 
-export function CommentSection({ issueId }: { issueId: string }) {
+export function CommentSection({ issueId, isMentor = false }: { issueId: string, isMentor?: boolean }) {
   const supabase = createClient();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [isInternalNote, setIsInternalNote] = useState(false);
   const [loading, setLoading] = useState(false);
   const [reactionCounts, setReactionCounts] = useState<Record<string, { like: number; support: number }>>({});
 
@@ -71,10 +75,12 @@ export function CommentSection({ issueId }: { issueId: string }) {
       body: newComment,
       issue_id: issueId,
       author_id: user.id,
+      is_internal_note: isInternalNote,
     });
 
     if (!error) {
       setNewComment("");
+      setIsInternalNote(false);
       fetchComments();
     }
     setLoading(false);
@@ -93,50 +99,72 @@ export function CommentSection({ issueId }: { issueId: string }) {
             comments.map((comment) => (
               <div
                 key={comment.id}
-                className="space-y-2 rounded-lg border p-4 text-sm"
+                className={`space-y-2 rounded-lg border p-4 text-sm ${comment.is_internal_note ? "bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50" : ""}`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary" className="text-[10px]">
                     {comment.author_id.slice(0, 1) < "8" ? "Mentor" : "Mentee"}
                   </Badge>
+                  {comment.is_internal_note && (
+                    <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800">
+                      <Lock className="h-3 w-3 mr-1" /> Internal Note
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {new Date(comment.created_at).toLocaleString()}
                   </span>
                 </div>
                 <p className="whitespace-pre-wrap">{comment.body}</p>
-                <p className="text-xs text-muted-foreground">
-                  Use @student mentions for targeted responses.
-                </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-2">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="h-8 px-2 text-xs"
                     onClick={() => bumpReaction(comment.id, "like")}
                   >
-                    <ThumbsUp className="h-3 w-3" /> {reactionCounts[comment.id]?.like ?? 0}
+                    <ThumbsUp className="h-3 w-3 mr-1" /> {reactionCounts[comment.id]?.like ?? 0}
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="h-8 px-2 text-xs"
                     onClick={() => bumpReaction(comment.id, "support")}
                   >
-                    <Heart className="h-3 w-3" /> {reactionCounts[comment.id]?.support ?? 0}
+                    <Heart className="h-3 w-3 mr-1" /> {reactionCounts[comment.id]?.support ?? 0}
                   </Button>
                 </div>
               </div>
             ))
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-            <textarea
+          <form onSubmit={handleSubmit} className="space-y-4 mt-6 pt-4 border-t">
+            <Textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment..."
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-[80px]"
               disabled={loading}
             />
+            
+            {isMentor && (
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="internal-note" 
+                  checked={isInternalNote} 
+                  onCheckedChange={(checked) => setIsInternalNote(checked as boolean)}
+                  disabled={loading}
+                />
+                <label
+                  htmlFor="internal-note"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center"
+                >
+                  <Lock className="h-3 w-3 mr-1" /> Mark as internal mentor note (hidden from mentee)
+                </label>
+              </div>
+            )}
+            
             <Button type="submit" disabled={loading || !newComment.trim()}>
               {loading ? "Posting..." : "Post Comment"}
             </Button>
