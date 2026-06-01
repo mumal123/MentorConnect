@@ -286,9 +286,21 @@ CREATE TABLE issues (
     status          issue_status     NOT NULL DEFAULT 'open',
     is_locked       BOOLEAN          NOT NULL DEFAULT FALSE,    -- locked after close
     view_count      INTEGER          NOT NULL DEFAULT 0,
+    score           INTEGER          NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
     closed_at       TIMESTAMPTZ
+);
+
+-- ---------------------------------------------------------------
+
+-- Upvotes and Downvotes for issues
+CREATE TABLE issue_votes (
+    issue_id        UUID        NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    user_id         UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vote_type       SMALLINT    NOT NULL CHECK (vote_type IN (1, -1)),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (issue_id, user_id)
 );
 
 -- ---------------------------------------------------------------
@@ -521,6 +533,35 @@ CREATE TRIGGER trg_professional_updated   BEFORE UPDATE ON professional_profiles
 CREATE TRIGGER trg_issues_updated         BEFORE UPDATE ON issues          FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_comments_updated       BEFORE UPDATE ON issue_comments  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_mentor_groups_updated  BEFORE UPDATE ON mentor_groups   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_issue_votes
+AFTER INSERT OR UPDATE OR DELETE ON issue_votes
+FOR EACH ROW EXECUTE FUNCTION update_issue_score();
+
+-- ============================================================
+-- SECTION 14: ISSUE VOTES RLS POLICIES
+-- ============================================================
+
+ALTER TABLE issue_votes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read access to votes" 
+ON issue_votes FOR SELECT 
+USING (true);
+
+CREATE POLICY "Allow users to insert their own votes" 
+ON issue_votes FOR INSERT 
+TO authenticated 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to update their own votes" 
+ON issue_votes FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = user_id) 
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to delete their own votes" 
+ON issue_votes FOR DELETE 
+TO authenticated 
+USING (auth.uid() = user_id);
 
 -- ============================================================
 -- SECTION 11A: AUTH -> APP USER SYNC TRIGGER

@@ -5,10 +5,28 @@ import Link from "next/link";
 
 export default async function IssuesPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data: issues } = await supabase
     .from("issues")
-    .select("id, title, description, status, created_at, visibility, issue_categories(name)")
-    .order("created_at", { ascending: false });
+    .select("id, title, description, status, created_at, visibility, issue_categories(name), score")
+    .order("score", { ascending: false });
+
+  const userVotes: Record<string, 1 | -1> = {};
+  if (user && issues && issues.length > 0) {
+    const issueIds = issues.map(i => i.id);
+    const { data: votes } = await supabase
+      .from("issue_votes")
+      .select("issue_id, vote_type")
+      .eq("user_id", user.id)
+      .in("issue_id", issueIds);
+    
+    if (votes) {
+      votes.forEach(v => {
+        userVotes[v.issue_id] = v.vote_type as 1 | -1;
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -24,7 +42,7 @@ export default async function IssuesPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {issues?.map((issue) => (
-          <IssueCard key={issue.id} issue={issue} />
+          <IssueCard key={issue.id} issue={{ ...issue, userVote: userVotes[issue.id] || null }} />
         ))}
       </div>
     </div>

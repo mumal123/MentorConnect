@@ -25,6 +25,13 @@ export function IssueForm() {
     setLoading(true);
     setError(null);
 
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const issueType = formData.get("issueType") as string;
+    const visibility = formData.get("visibility") as string;
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -34,12 +41,6 @@ export function IssueForm() {
       setLoading(false);
       return;
     }
-
-    const formData = new FormData(event.currentTarget);
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const issueType = formData.get("issueType") as string;
-    const visibility = formData.get("visibility") as string;
 
     let categoryId: number | null = null;
 

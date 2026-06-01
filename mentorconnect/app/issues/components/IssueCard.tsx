@@ -6,8 +6,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import { IssueVoteControls } from "./IssueVoteControls";
 
-interface Issue {
+export interface Issue {
   id: string;
   title: string;
   description: string;
@@ -15,36 +16,52 @@ interface Issue {
   created_at: string;
   visibility?: string;
   issue_categories?: { name: string } | null;
+  score: number;
+  userVote: 1 | -1 | null;
 }
 
 export function IssueCard({ issue }: { issue: Issue }) {
   const statusLabel = issue.status.replaceAll("_", " ");
 
   return (
-    <Link href={`/issues/${issue.id}`}>
-      <Card className="cursor-pointer hover:bg-accent/40 transition-colors">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">{issue.title}</CardTitle>
-            <Badge variant={issue.status === "closed" || issue.status === "resolved" ? "secondary" : "default"}>
-              {statusLabel}
-            </Badge>
+    <Card className="hover:bg-accent/40 transition-colors relative">
+      <Link href={`/issues/${issue.id}`} className="absolute inset-0 z-0">
+        <span className="sr-only">View Issue</span>
+      </Link>
+      <CardHeader className="relative z-10 pointer-events-none">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg pointer-events-auto">
+            <Link href={`/issues/${issue.id}`} className="hover:underline">
+              {issue.title}
+            </Link>
+          </CardTitle>
+          <Badge variant={issue.status === "closed" || issue.status === "resolved" ? "secondary" : "default"} className="pointer-events-auto">
+            {statusLabel}
+          </Badge>
+        </div>
+        <CardDescription className="line-clamp-2">
+          {issue.description}
+        </CardDescription>
+        <div className="flex flex-wrap items-center gap-2 text-xs mt-2 pointer-events-auto">
+          <Badge variant="outline">{issue.issue_categories?.name ?? "General"}</Badge>
+          <Badge variant="outline" className="capitalize">
+            {issue.visibility ?? "public"}
+          </Badge>
+          <div className="ml-auto flex items-center gap-4">
+            <IssueVoteControls 
+              issueId={issue.id} 
+              initialScore={issue.score ?? 0} 
+              initialUserVote={issue.userVote} 
+            />
+            <span className="text-muted-foreground flex items-center gap-1">
+              💬 3
+            </span>
           </div>
-          <CardDescription className="line-clamp-2">
-            {issue.description}
-          </CardDescription>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge variant="outline">{issue.issue_categories?.name ?? "General"}</Badge>
-            <Badge variant="outline" className="capitalize">
-              {issue.visibility ?? "public"}
-            </Badge>
-            <span className="text-muted-foreground ml-auto">👍 8 · 💬 3</span>
-          </div>
-          <div className="text-xs text-muted-foreground mt-2">
-            Created on {new Date(issue.created_at).toLocaleDateString()}
-          </div>
-        </CardHeader>
-      </Card>
-    </Link>
+        </div>
+        <div className="text-xs text-muted-foreground mt-2">
+          Created on {new Date(issue.created_at).toLocaleDateString()}
+        </div>
+      </CardHeader>
+    </Card>
   );
 }
