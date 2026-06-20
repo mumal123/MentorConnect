@@ -83,7 +83,12 @@ export default async function AdminPanelPage() {
 
   const allUsers = (allUsersData || []) as UserProfileRow[];
   const mentorProfiles = (mentorProfilesData || []) as MentorProfileRow[];
-  const menteeIds = Array.from(new Set((menteeRoleRows || []).map((row) => row.user_id as string)));
+  
+  // A mentee is any user who is not a mentor
+  const mentorIdsSet = new Set(mentorProfiles.map((row) => row.user_id));
+  const menteeIds = allUsers
+    .map((user) => user.user_id)
+    .filter((id) => !mentorIdsSet.has(id));
   const menteeIdSet = new Set(menteeIds);
 
   const { data: activeMembershipsData } = await supabase
