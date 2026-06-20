@@ -75,7 +75,7 @@ export default async function IssuesPage(props: {
       .select("issue_id, vote_type")
       .eq("user_id", user.id)
       .in("issue_id", issueIds);
-    
+
     if (votes) {
       votes.forEach(v => {
         userVotes[v.issue_id] = v.vote_type as 1 | -1;
@@ -101,7 +101,7 @@ export default async function IssuesPage(props: {
       </Suspense>
 
       <div className="flex items-center gap-4 border-b pb-4">
-        <Link 
+        <Link
           href={`/issues?state=open${search ? `&search=${encodeURIComponent(search)}` : ""}${category && category !== "all" ? `&category=${encodeURIComponent(category)}` : ""}${sort !== "score" ? `&sort=${sort}` : ""}`}
           className={cn(
             "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
@@ -111,7 +111,7 @@ export default async function IssuesPage(props: {
           <CircleDot className="h-4 w-4" />
           {openCount || 0} Open
         </Link>
-        <Link 
+        <Link
           href={`/issues?state=closed${search ? `&search=${encodeURIComponent(search)}` : ""}${category && category !== "all" ? `&category=${encodeURIComponent(category)}` : ""}${sort !== "score" ? `&sort=${sort}` : ""}`}
           className={cn(
             "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
