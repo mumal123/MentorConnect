@@ -56,29 +56,39 @@ export default async function AdminPanelPage() {
     redirect("/protected");
   }
 
-  const [{ data: allUsersData }, { data: usersTableData }, { data: mentorProfilesData }, { data: menteeRoleRows }] =
-    await Promise.all([
-      supabase
-        .from("user_profiles")
-        .select("user_id, full_name, college_email, department")
-        .order("full_name", { ascending: true }),
-      supabase
-        .from("users")
-        .select("id, email"),
-      supabase
-        .from("mentor_ug_pg_profiles")
-        .select("user_id, max_mentees, current_mentees_count, is_accepting_mentees"),
-      supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role_id", 1)
-        .eq("is_active", true),
-    ]);
+  const [
+    { data: allUsersData, error: allUsersError },
+    { data: mentorProfilesData, error: mentorProfilesError },
+    { data: menteeRoleRows, error: menteeRoleError },
+  ] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select("user_id, full_name, college_email, department")
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("mentor_ug_pg_profiles")
+      .select("user_id, max_mentees, current_mentees_count, is_accepting_mentees"),
+    supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role_id", 1)
+      .eq("is_active", true),
+  ]);
+
+  console.log("Admin Panel Queries Errors:", {
+    allUsersError,
+    mentorProfilesError,
+    menteeRoleError,
+  });
 
   const allUsers = (allUsersData || []) as UserProfileRow[];
-  const usersTableRows = (usersTableData || []) as UserRow[];
   const mentorProfiles = (mentorProfilesData || []) as MentorProfileRow[];
-  const menteeIds = Array.from(new Set((menteeRoleRows || []).map((row) => row.user_id as string)));
+  
+  // A mentee is any user who is not a mentor
+  const mentorIdsSet = new Set(mentorProfiles.map((row) => row.user_id));
+  const menteeIds = allUsers
+    .map((user) => user.user_id)
+    .filter((id) => !mentorIdsSet.has(id));
   const menteeIdSet = new Set(menteeIds);
 
   const { data: activeMembershipsData } = await supabase
@@ -118,7 +128,6 @@ export default async function AdminPanelPage() {
   const mentorUserProfiles = (mentorUserProfilesData || []) as UserProfileRow[];
   const mentorUserById = new Map(mentorUserProfiles.map((profile) => [profile.user_id, profile]));
   const userProfileById = new Map(allUsers.map((profile) => [profile.user_id, profile]));
-  const userEmailById = new Map(usersTableRows.map((userRow) => [userRow.id, userRow.email]));
 
   const mentees = menteeIds.map((menteeId) => {
       const profile = userProfileById.get(menteeId);
@@ -129,7 +138,7 @@ export default async function AdminPanelPage() {
       return {
         id: menteeId,
         name: profile?.full_name || "Profile incomplete",
-        email: profile?.college_email || userEmailById.get(menteeId) || "Unknown email",
+        email: profile?.college_email || "Unknown email",
         department: profile?.department || "Not provided",
         currentMentorId: mentorId,
         currentMentorName: mentor?.full_name ?? null,
@@ -151,17 +160,16 @@ export default async function AdminPanelPage() {
     };
   });
 
-  const allUsersWithMentor = usersTableRows.map((userRow) => {
-    const profile = userProfileById.get(userRow.id);
-    const membership = latestMembershipByMentee.get(userRow.id);
+  const allUsersWithMentor = allUsers.map((profile) => {
+    const membership = latestMembershipByMentee.get(profile.user_id);
     const mentorId = membership ? groupsById.get(membership.group_id)?.mentor_id ?? null : null;
     const mentor = mentorId ? mentorUserById.get(mentorId) : null;
 
     return {
-      id: userRow.id,
-      name: profile?.full_name || "Profile incomplete",
-      email: profile?.college_email || userRow.email,
-      department: profile?.department || "Not provided",
+      id: profile.user_id,
+      name: profile.full_name || "Profile incomplete",
+      email: profile.college_email || "Unknown email",
+      department: profile.department || "Not provided",
       assignedMentorName: mentor?.full_name ?? null,
       assignedMentorEmail: mentor?.college_email ?? null,
     };
