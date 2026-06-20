@@ -1,15 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { IssueCard } from "./components/IssueCard";
+import { IssuesToolbar } from "./components/IssuesToolbar";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CircleDot, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Suspense } from "react";
 
 export default async function IssuesPage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = await props.searchParams;
   const state = searchParams.state === "closed" ? "closed" : "open";
+  const search = typeof searchParams.search === "string" ? searchParams.search.trim() : "";
+  const category = typeof searchParams.category === "string" ? searchParams.category : "";
+  const sort = typeof searchParams.sort === "string" ? searchParams.sort : "score";
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -26,20 +32,44 @@ export default async function IssuesPage(props: {
 
   let query = supabase
     .from("issues")
-    .select("id, title, description, status, created_at, visibility, issue_categories(name), score")
-    .order("score", { ascending: false });
+    .select("id, title, description, status, created_at, visibility, issue_categories(name), score");
 
+  // State filter (open/closed)
   if (state === "closed") {
     query = query.in("status", ["resolved", "closed"]);
   } else {
     query = query.in("status", ["open", "in_discussion", "needs_escalation"]);
   }
 
+  // Search filter
+  if (search) {
+    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+  }
+
+  // Category filter
+  if (category && category !== "all") {
+    query = query.eq("issue_categories.name", category);
+  }
+
+  // Sort
+  if (sort === "newest") {
+    query = query.order("created_at", { ascending: false });
+  } else if (sort === "oldest") {
+    query = query.order("created_at", { ascending: true });
+  } else {
+    query = query.order("score", { ascending: false });
+  }
+
   const { data: issues } = await query;
 
+  // Filter out issues where category didn't match (Supabase returns null for unmatched joins)
+  const filteredIssues = category && category !== "all"
+    ? (issues ?? []).filter(issue => issue.issue_categories !== null)
+    : (issues ?? []);
+
   const userVotes: Record<string, 1 | -1> = {};
-  if (user && issues && issues.length > 0) {
-    const issueIds = issues.map(i => i.id);
+  if (user && filteredIssues.length > 0) {
+    const issueIds = filteredIssues.map(i => i.id);
     const { data: votes } = await supabase
       .from("issue_votes")
       .select("issue_id, vote_type")
@@ -65,9 +95,14 @@ export default async function IssuesPage(props: {
         </Link>
       </div>
 
+      {/* Search & Filters */}
+      <Suspense fallback={null}>
+        <IssuesToolbar />
+      </Suspense>
+
       <div className="flex items-center gap-4 border-b pb-4">
         <Link 
-          href="/issues?state=open" 
+          href={`/issues?state=open${search ? `&search=${encodeURIComponent(search)}` : ""}${category && category !== "all" ? `&category=${encodeURIComponent(category)}` : ""}${sort !== "score" ? `&sort=${sort}` : ""}`}
           className={cn(
             "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
             state === "open" ? "text-primary" : "text-muted-foreground"
@@ -77,7 +112,7 @@ export default async function IssuesPage(props: {
           {openCount || 0} Open
         </Link>
         <Link 
-          href="/issues?state=closed" 
+          href={`/issues?state=closed${search ? `&search=${encodeURIComponent(search)}` : ""}${category && category !== "all" ? `&category=${encodeURIComponent(category)}` : ""}${sort !== "score" ? `&sort=${sort}` : ""}`}
           className={cn(
             "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
             state === "closed" ? "text-primary" : "text-muted-foreground"
@@ -86,11 +121,28 @@ export default async function IssuesPage(props: {
           <CheckCircle className="h-4 w-4" />
           {closedCount || 0} Closed
         </Link>
+
+        {/* Active filter indicators */}
+        {(search || (category && category !== "all")) && (
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Filtered</span>
+            {search && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                &quot;{search}&quot;
+              </span>
+            )}
+            {category && category !== "all" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                {category}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {issues && issues.length > 0 ? (
+      {filteredIssues.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
-          {issues.map((issue) => (
+          {filteredIssues.map((issue) => (
             <IssueCard key={issue.id} issue={{ ...issue, userVote: userVotes[issue.id] || null }} />
           ))}
         </div>
@@ -101,7 +153,10 @@ export default async function IssuesPage(props: {
           </div>
           <h3 className="text-lg font-semibold">No issues found</h3>
           <p className="text-sm text-muted-foreground max-w-sm mt-1">
-            There are no {state} issues at the moment.
+            {search || (category && category !== "all")
+              ? "No issues match your current filters. Try adjusting your search or category."
+              : `There are no ${state} issues at the moment.`
+            }
           </p>
         </div>
       )}
