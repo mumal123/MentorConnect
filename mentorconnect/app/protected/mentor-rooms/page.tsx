@@ -1,57 +1,95 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LabelRow } from "@/components/workspace/insights-components";
+import { createClient } from "@/lib/supabase/server";
+import { loadGroupChatHub } from "@/lib/chat";
+import { Users } from "lucide-react";
 
-const rooms = [
-  {
-    id: "cs-2027",
-    mentor: "Ananya Singh",
-    labels: ["CSE", "3rd Year", "Active"],
-    openIssues: 4,
-    members: 23,
-  },
-  {
-    id: "ece-2026",
-    mentor: "Vikram Patel",
-    labels: ["ECE", "PG Mentor", "Active"],
-    openIssues: 2,
-    members: 17,
-  },
-  {
-    id: "mech-2027",
-    mentor: "Karan Mehta",
-    labels: ["Mechanical", "Senior Mentor", "Active"],
-    openIssues: 5,
-    members: 20,
-  },
-];
+function formatTime(value: string | null) {
+  if (!value) return "No messages yet";
 
-export default function MentorRoomsPage() {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+export default async function MentorRoomsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
+  const groupChats = await loadGroupChatHub(supabase, user.id);
+
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-mono text-2xl font-semibold">Mentor Rooms</h1>
-        <p className="text-sm text-muted-foreground">Repository-style mentor spaces with discussions, issues, and tasks.</p>
+      <header className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h1 className="font-mono text-2xl font-semibold">Group Chats</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Group chats follow the mentor room structure. Only the mentor and mentees assigned to that room can post.
+        </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {rooms.map((room) => (
-          <Link key={room.id} href={`/protected/mentor-rooms/${room.id}`}>
-            <Card className="h-full transition-colors hover:bg-accent/40">
-              <CardHeader>
-                <CardTitle className="text-base">{room.mentor}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <LabelRow labels={room.labels} />
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>{room.members} members</span>
-                  <Badge variant="outline">{room.openIssues} open issues</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <div className="grid gap-4 md:grid-cols-[1.4fr_0.8fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-mono text-sm">Your group chats</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {groupChats.groupChats.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-6 text-muted-foreground">{groupChats.emptyState}</div>
+            ) : (
+              groupChats.groupChats.map((chat) => (
+                <Link key={chat.threadId} href={chat.href} className="block rounded-xl border p-4 transition-colors hover:bg-accent/40">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{chat.title}</p>
+                        <Badge variant="secondary">{chat.badge}</Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">{chat.subtitle}</p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <p>{chat.participantCount} participants</p>
+                      <p>{formatTime(chat.lastMessageAt)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-mono text-sm">Room rules</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <div className="rounded-xl border p-3">
+              <p className="font-medium text-foreground">Mentor control</p>
+              <p className="mt-1">Each group chat belongs to a mentor room and inherits the active mentor assignment.</p>
+            </div>
+            <div className="rounded-xl border p-3">
+              <p className="font-medium text-foreground">Mentee membership</p>
+              <p className="mt-1">Only mentees in the active mentor group can view and post messages.</p>
+            </div>
+            <div className="rounded-xl border p-3">
+              <p className="font-medium text-foreground">No peer DMs</p>
+              <p className="mt-1">Mentees cannot open conversations with other mentees through this system.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

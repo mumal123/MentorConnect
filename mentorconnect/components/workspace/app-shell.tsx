@@ -46,9 +46,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/protected", label: "Dashboard", icon: Home },
-  { href: "/protected/mentor-rooms", label: "Mentor Rooms", icon: Users },
+  { href: "/protected/mentor-rooms", label: "Group Chats", icon: Users },
   { href: "/issues", label: "Issues", icon: AlertCircle },
-  { href: "/protected/discussions", label: "Discussions", icon: MessageSquare },
+  { href: "/protected/discussions", label: "Direct Chats", icon: MessageSquare },
   { href: "/protected/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/protected/feedback", label: "Feedback", icon: BookOpen },
   { href: "/protected/reports", label: "Reports & Analytics", icon: BarChart3 },

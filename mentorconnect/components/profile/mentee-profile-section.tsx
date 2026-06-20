@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/app/actions/profile";
 
 interface AssignedMentor {
+  mentorId: string;
   name: string;
   email: string | null;
   department: string | null;
@@ -37,6 +39,7 @@ interface MenteeData {
 interface MenteeProfileSectionProps {
   assignedMentor: AssignedMentor | null;
   menteeData: MenteeData | null;
+  userId: string;
 }
 
 const commPrefConfig = {
@@ -151,6 +154,7 @@ function MentorBackgroundEditor({ initialValue }: { initialValue: string | null 
 export function MenteeProfileSection({
   assignedMentor,
   menteeData,
+  userId,
 }: MenteeProfileSectionProps) {
   const challenges = menteeData?.current_challenges ?? [];
   const commPref = menteeData?.communication_preference ?? "both";
@@ -195,6 +199,22 @@ export function MenteeProfileSection({
                 </span>
               </p>
             )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link
+                href={`/protected/discussions/direct/${assignedMentor.mentorId}/${userId}`}
+                className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Open direct chat
+              </Link>
+              <Link
+                href={`/protected/mentor-rooms/group/${assignedMentor.groupId}`}
+                className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent/60"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Open group chat
+              </Link>
+            </div>
           </CardContent>
         </Card>
       ) : (
