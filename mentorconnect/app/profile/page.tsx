@@ -188,6 +188,7 @@ export default async function ProfilePage() {
 
   // ── Fetch assigned mentor (for mentees) ──────────────────────────────────
   let assignedMentor: {
+    mentorId: string;
     name: string;
     email: string | null;
     department: string | null;
@@ -219,6 +220,7 @@ export default async function ProfilePage() {
           .maybeSingle();
 
         assignedMentor = {
+          mentorId: mentorGroup.mentor_id,
           name: mentorProfile?.full_name || "Unknown mentor",
           email: mentorProfile?.college_email || null,
           department: mentorProfile?.department || null,
@@ -456,6 +458,7 @@ export default async function ProfilePage() {
             <MenteeProfileSection
               assignedMentor={assignedMentor}
               menteeData={menteeData}
+              userId={resolvedUserId}
             />
           )}
           {/* ADMIN view */}
